@@ -2,8 +2,8 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Course, Chapter, QuizQuestion, ExternalLink } from "../types";
 
-const PRIMARY_MODEL = "gemini-flash-latest"; 
-const FALLBACK_MODEL = "gemini-flash-latest"; // Using the same flash model for consistency and throughput
+const PRIMARY_MODEL = "gemini-2.5-flash"; 
+const FALLBACK_MODEL = "gemini-2.5-flash"; // Using the same flash model for consistency and throughput
 
 /**
  * Enhanced helper to extract JSON from model responses.
