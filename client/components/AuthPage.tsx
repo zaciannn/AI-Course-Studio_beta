@@ -36,13 +36,10 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onLogin }) => {
         }
       } else {
         // --- REGISTER ---
-        const data = await registerUser(name, email, password);
-        // Show "check your email" message instead of auto-login
-        setSuccessMessage("✅ Account created! Please check your email and click the verification link before logging in.");
-        setIsLogin(true);
-        setName('');
-        setEmail('');
-        setPassword('');
+         const data = await registerUser(name, email, password);
+        if (data.token) {
+          onLogin(data.token);
+        }
       }
     } catch (err: any) {
       setError(err.message || 'Something went wrong. Please try again.');
@@ -99,7 +96,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onLogin }) => {
             <div className="text-center mb-8">
               <h2 className="text-2xl font-bold mb-2">{isLogin ? "Sign In" : "Create Account"}</h2>
               <p className="text-sm text-gray-400">
-                {isLogin ? "Enter your credentials to continue" : "Register to get started"}
+                const data{isLogin ? "Enter your credentials to continue" : "Register to get started"}
               </p>
             </div>
 
