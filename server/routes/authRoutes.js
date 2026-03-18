@@ -1,22 +1,27 @@
-const express = require("express");
+const express = require('express');
+const router  = express.Router();
+const passport = require('passport');
+const jwt = require('jsonwebtoken');
 
-const router = express.Router();
+// Step 1: Redirect user to Google
+router.get('/google',
+  passport.authenticate('google', { scope: ['profile', 'email'] })
+);
 
-const {
-registerUser,
-loginUser,
-verifyEmail,
-forgotPassword,
-resetPassword
-} = require("../controllers/authController");
+// Step 2: Google redirects back here
+router.get('/google/callback',
+  passport.authenticate('google', { session: false, failureRedirect: '/' }),
+  (req, res) => {
+    // Sign a JWT with the user's MongoDB _id
+    const token = jwt.sign(
+      { id: req.user._id },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
 
-router.post("/register",registerUser);
-
-router.post("/login",loginUser);
-
-router.get("/verify-email", verifyEmail);
-router.post("/forgot-password",forgotPassword);
-
-router.post("/reset-password/:token",resetPassword);
+    // Send token to React frontend via URL param
+    res.redirect(`${process.env.CLIENT_URL}/?token=${token}`);
+  }
+);
 
 module.exports = router;

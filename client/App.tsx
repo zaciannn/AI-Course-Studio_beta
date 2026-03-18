@@ -575,11 +575,21 @@ export default function App() {
 
   // Handle email verification redirect from backend
   useEffect(() => {
-    if (window.location.pathname === '/verified') {
-      setView('verified');
-      window.history.replaceState({}, '', '/');
-    }
-  }, []);
+  // Handle email verification
+  if (window.location.pathname === '/verified') {
+    setView('verified');
+    window.history.replaceState({}, '', '/');
+    return;
+  }
+
+  
+  const params = new URLSearchParams(window.location.search);
+  const googleToken = params.get('token');
+  if (googleToken) {
+    handleLogin(googleToken);                          
+    window.history.replaceState({}, '', '/');          
+  }
+}, []);
   // Auto-login from stored token on mount
   useEffect(() => {
     const storedToken = localStorage.getItem('authToken');

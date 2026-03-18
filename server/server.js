@@ -1,33 +1,33 @@
-const express = require("express");
-const dotenv = require("dotenv");
-const cors = require("cors");
+require('dotenv').config();
+const express  = require('express');
+const mongoose = require('mongoose');
+const passport = require('passport');
+const session  = require('express-session');
 
-const connectDB = require("./config/db");
-const authRoutes = require("./routes/authRoutes");
-const geminiRoutes = require("./routes/geminiRoutes");
-
-dotenv.config();
-
-console.log("Starting server init...");
-console.log("Port:", process.env.PORT);
-console.log("Connecting to DB...");
-
-connectDB();
+require('./config/passport'); // load passport strategy
 
 const app = express();
-console.log("Express app created...");
 
-app.use(cors());
-app.use(express.json());
+app.use(cors({
+  origin: 'http://localhost:3000',
+  credentials: true
+}));
+// Connect to MongoDB
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => console.log('MongoDB connected'))
+  .catch(err => console.error(err));
 
-// Log incoming requests to console
-app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-  next();
-});
+// Session middleware (required by passport even with JWT)
+app.use(session({
+  secret: process.env.JWT_SECRET,
+  resave: false,
+  saveUninitialized: false
+}));
 
-app.use("/api/auth",authRoutes);
-app.use("/api/gemini", geminiRoutes);
-app.listen(process.env.PORT,()=>{
-  console.log("Server running");
-});
+app.use(passport.initialize());
+app.use(passport.session());
+
+// Auth routes
+app.use('/auth', require('./routes/authRoutes'));
+
+app.listen(5000, () => console.log('Server running on port 5000'));

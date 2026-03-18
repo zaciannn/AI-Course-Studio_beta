@@ -96,7 +96,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onLogin }) => {
             <div className="text-center mb-8">
               <h2 className="text-2xl font-bold mb-2">{isLogin ? "Sign In" : "Create Account"}</h2>
               <p className="text-sm text-gray-400">
-                const data{isLogin ? "Enter your credentials to continue" : "Register to get started"}
+                {isLogin ? "Enter your credentials to continue" : "Register to get started"}
               </p>
             </div>
 
@@ -177,7 +177,24 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onLogin }) => {
                   </>
                 )}
               </button>
-            </form>
+              </form>
+
+            {/* Divider */}
+            <div className="flex items-center gap-4 my-4">
+              <div className="flex-1 h-px bg-white/10" />
+              <span className="text-xs text-gray-500 font-bold">OR</span>
+              <div className="flex-1 h-px bg-white/10" />
+            </div>
+
+            {/* Google Button */}
+            <button
+              type="button"
+              onClick={() => window.location.href = 'http://localhost:5000/auth/google'}
+              className="w-full flex items-center justify-center gap-3 py-3 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all font-bold text-sm"
+            >
+              <img src="https://www.google.com/favicon.ico" className="w-5 h-5" />
+              Continue with Google
+            </button>
 
             <div className="mt-6 text-center text-sm">
               <span className="text-gray-400">
