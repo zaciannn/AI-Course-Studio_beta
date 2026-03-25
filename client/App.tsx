@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { GlassCard } from './components/GlassCard';
 import { AuthPage } from './components/AuthPage';
+import ChatBot from './components/ChatBot';
 import { generateCourseSyllabus, generateChapterContent } from './services/geminiService';
 import { Course, Chapter, UserReview, UserProfile, AIStudio, ExternalLink, QuizQuestion } from './types';
 
@@ -652,6 +653,7 @@ export default function App() {
         setCourses(courses.map(c => c.id === nc.id ? nc : c));
       }} />}
       {showCreator && <CourseCreator onClose={() => setShowCreator(false)} onGenerate={(c) => { setCourses([c, ...courses]); setShowCreator(false); }} />}
+      {view !== 'auth' && <ChatBot />}
     </div>
   );
 }
