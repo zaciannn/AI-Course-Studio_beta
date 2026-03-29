@@ -13,6 +13,7 @@ import { GlassCard } from './components/GlassCard';
 import { AuthPage } from './components/AuthPage';
 import ChatBot from './components/ChatBot';
 import { generateCourseSyllabus, generateChapterContent } from './services/geminiService';
+import { fetchMyCourses, enrollCourse, hideCourse, updateChapterProgress, saveChapterContent } from './services/courseService';
 import { Course, Chapter, UserReview, UserProfile, AIStudio, ExternalLink, QuizQuestion } from './types';
 
 // Extend the global Window interface for third-party scripts and platform-injected objects.
@@ -182,10 +183,11 @@ const LandingPage = ({ onStart }: { onStart: () => void }) => {
   );
 };
 
-const Dashboard = ({ courses, onCreateNew, onSelectCourse }: { 
+const Dashboard = ({ courses, onCreateNew, onSelectCourse, onHideCourse }: { 
   courses: Course[], 
   onCreateNew: () => void,
-  onSelectCourse: (c: Course) => void
+  onSelectCourse: (c: Course) => void,
+  onHideCourse: (id: string) => void
 }) => (
   <div className="pt-32 px-6 max-w-7xl mx-auto">
     <div className="flex justify-between items-end mb-16">
@@ -215,6 +217,15 @@ const Dashboard = ({ courses, onCreateNew, onSelectCourse }: {
                 hoverEffect
                 className="h-72 flex flex-col justify-between cursor-pointer relative overflow-hidden group border-white/5"
               >
+                <div className="absolute top-4 right-4 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); onHideCourse((course as any)._id || course.id); }}
+                    className="p-2 bg-red-500/20 text-red-500 rounded-lg hover:bg-red-500/40 transition-colors backdrop-blur-md"
+                    title="Hide Course"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
                 {course.coverImage && (
                   <>
                     <div className="absolute inset-0 z-0 transition-transform duration-700 group-hover:scale-110 opacity-30"
@@ -390,7 +401,15 @@ const CourseCreator = ({ onGenerate, onClose }: { onGenerate: (course: Course) =
           )}
         </div>
         
-        {step === 'review' && <div className="p-8 border-t border-white/5 bg-[#01030d] flex gap-4 shrink-0"><button onClick={() => setStep('input')} className="flex-1 py-5 rounded-2xl border border-white/5 hover:bg-white/5 transition-all font-black text-xs uppercase tracking-[0.2em] text-gray-500">Discard Path</button><button onClick={() => onGenerate(draftCourse as Course)} className="flex-[2] bg-indigo-600 hover:bg-indigo-500 text-white font-black py-5 rounded-2xl transition-all shadow-2xl shadow-indigo-900/40 uppercase tracking-[0.2em] text-xs flex items-center justify-center gap-3"><CheckCircle className="w-5 h-5" /> Initialize Curriculum</button></div>}
+        {step === 'review' && <div className="p-8 border-t border-white/5 bg-[#01030d] flex gap-4 shrink-0"><button onClick={() => setStep('input')} className="flex-1 py-5 rounded-2xl border border-white/5 hover:bg-white/5 transition-all font-black text-xs uppercase tracking-[0.2em] text-gray-500">Discard Path</button><button onClick={async () => {
+          try {
+            const savedCourse = await enrollCourse(draftCourse as Course);
+            onGenerate(savedCourse);
+          } catch (e) {
+            console.error(e);
+            alert("Error enrolling course");
+          }
+        }} className="flex-[2] bg-indigo-600 hover:bg-indigo-500 text-white font-black py-5 rounded-2xl transition-all shadow-2xl shadow-indigo-900/40 uppercase tracking-[0.2em] text-xs flex items-center justify-center gap-3"><CheckCircle className="w-5 h-5" /> Initialize Curriculum</button></div>}
       </GlassCard>
     </div>
   );
@@ -411,25 +430,37 @@ const CoursePlayer = ({ course, onBack, onCompleteChapter }: { course: Course, o
   useEffect(() => {
     // Only fetch if we don't already have data for this chapter in the player's local state
     if (activeChapter && !data[activeChapter.id]) {
-      setLoading(true);
-      generateChapterContent(activeChapter.title, course.title)
-        .then(res => {
-          setData(prev => ({ ...prev, [activeChapter.id]: res }));
-        })
-        .catch(err => {
-          console.error("Effect generation error:", err);
-          setData(prev => ({ 
-            ...prev, 
-            [activeChapter.id]: { 
-              content_md: "## Loading Error\nFailed to fetch content. Check console for details." 
-            } 
-          }));
-        })
-        .finally(() => {
-          setLoading(false);
-        });
+      // Check if it's already generated and saved in the database
+      if (activeChapter.videoId_1 || activeChapter.content_md) {
+         setData(prev => ({ ...prev, [activeChapter.id]: activeChapter }));
+      } else {
+        setLoading(true);
+        generateChapterContent(activeChapter.title, course.title)
+          .then(res => {
+            // Background save to MongoDB so it persists
+            const cId = (course as any)._id || course.id;
+            if (cId) {
+               saveChapterContent(cId, activeChapter.id, res).catch(console.error);
+            }
+            // Update the local in-memory reference too
+            Object.assign(activeChapter, res);
+            setData(prev => ({ ...prev, [activeChapter.id]: res }));
+          })
+          .catch(err => {
+            console.error("Effect generation error:", err);
+            setData(prev => ({ 
+              ...prev, 
+              [activeChapter.id]: { 
+                content_md: "## Loading Error\nFailed to fetch content. Check console for details." 
+              } 
+            }));
+          })
+          .finally(() => {
+            setLoading(false);
+          });
+      }
     }
-  }, [activeChapter?.id, course.title]);
+  }, [activeChapter?.id, course.title, course.id, data]); // added missing deps
 
   return (
     <div className="pt-20 h-screen flex flex-col md:flex-row bg-[#010208] overflow-hidden">
@@ -605,7 +636,13 @@ export default function App() {
     }
   }, []);
 
-  const handleLogin = (token: string) => {
+  useEffect(() => {
+    if (user && view === 'dashboard') {
+      fetchMyCourses().then(c => setCourses(c)).catch(console.error);
+    }
+  }, [user, view]);
+
+  const handleLogin = async (token: string) => {
     localStorage.setItem('authToken', token);
     const decoded = decodeToken(token);
     const userName = decoded?.name || 'Scholar';
@@ -646,12 +683,25 @@ export default function App() {
           </div>
         </div>
       )}
-      {view === 'dashboard' && <Dashboard courses={courses} onCreateNew={() => setShowCreator(true)} onSelectCourse={(c) => { setActiveCourse(c); setView('course'); }} />}
-      {view === 'course' && activeCourse && <CoursePlayer course={activeCourse} onBack={() => setView('dashboard')} onCompleteChapter={(id) => {
-        const updated = activeCourse.chapters.map(c => c.id === id ? { ...c, isCompleted: true } : c);
-        const nc = { ...activeCourse, chapters: updated, completedChapters: updated.filter(u=>u.isCompleted).length };
-        setActiveCourse(nc);
-        setCourses(courses.map(c => c.id === nc.id ? nc : c));
+      {view === 'dashboard' && <Dashboard courses={courses} onCreateNew={() => setShowCreator(true)} onHideCourse={async (id) => {
+        try {
+          await hideCourse(id);
+          setCourses(courses.filter((c: any) => (c._id || c.id) !== id));
+        } catch(e) { console.error(e); alert("Failed to hide"); }
+      }} onSelectCourse={(c) => { setActiveCourse(c); setView('course'); }} />}
+      {view === 'course' && activeCourse && <CoursePlayer course={activeCourse} onBack={() => { setView('dashboard'); fetchMyCourses().then(setCourses).catch(console.error); }} onCompleteChapter={async (id) => {
+        try {
+          const updatedCourse = await updateChapterProgress((activeCourse as any)._id || activeCourse.id, id);
+          setActiveCourse(updatedCourse);
+          setCourses(courses.map((c: any) => (c._id || c.id) === (updatedCourse as any)._id ? updatedCourse : c));
+        } catch(e) {
+          console.error(e);
+          // Fallback static update if server fails, though rarely recommended
+          const updated = activeCourse.chapters.map(c => c.id === id ? { ...c, isCompleted: true } : c);
+          const nc = { ...activeCourse, chapters: updated, completedChapters: updated.filter(u=>u.isCompleted).length };
+          setActiveCourse(nc);
+          setCourses(courses.map((c: any) => (c._id || c.id) === (nc as any)._id ? nc : c));
+        }
       }} />}
       {showCreator && <CourseCreator onClose={() => setShowCreator(false)} onGenerate={(c) => { setCourses([c, ...courses]); setShowCreator(false); }} />}
       {view !== 'auth' && <ChatBot />}

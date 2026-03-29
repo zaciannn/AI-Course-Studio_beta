@@ -7,6 +7,10 @@ const userSchema = new mongoose.Schema({
   password:   { type: String }, // Optional for Google Auth users
   avatar:     { type: String },
   isVerified: { type: Boolean, default: false },
+  enrolledCourses: [{
+    courseId: { type: mongoose.Schema.Types.ObjectId, ref: 'Course' },
+    hidden: { type: Boolean, default: false }
+  }],
   createdAt:  { type: Date, default: Date.now }
 });
 

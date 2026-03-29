@@ -35,4 +35,5 @@ app.use('/auth', require('./routes/authRoutes')); // kept for any existing googl
 app.use('/api/auth', require('./routes/authRoutes')); // used by frontend API
 app.use('/api/gemini', require('./routes/geminiRoutes'));
 app.use('/api/chatbot', require('./routes/chatbotRoutes'));
+app.use('/api/courses', require('./routes/courseRoutes'));
 app.listen(5000, () => console.log('Server running on port 5000'));
